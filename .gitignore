@@ -1,0 +1,15 @@
+.catkin_tools/
+.vscode/
+build/
+devel/
+logs/
+src/.gitignore
+src/LICENSE.md
+src/TEMPLATE
+src/demo_autonomy/
+src/docs/
+src/fssim/
+src/fssim_description/
+src/fssim_gazebo/
+src/fssim_gazebo_plugins/
+src/fssim_messages/
