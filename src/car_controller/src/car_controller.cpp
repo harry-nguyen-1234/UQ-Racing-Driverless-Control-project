@@ -25,43 +25,55 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <sstream>
 #include "ros/ros.h"
 #include "std_msgs/String.h"
 
-#include <sstream>
+class CarController {
+    public: 
+        CarController() {
+            pub_ = n_.advertise<std_msgs::String>("car_controller", 10);
+            sub_ = n_.subscribe("car_controller", 10, &CarController::callback, 
+                this);
+        }
 
-int main(int argc, char **argv)
-{
-  ros::init(argc, argv, "car_controller");
+        void publish(std_msgs::String msg) {
+            pub_.publish(msg);
+        }
 
-  ros::NodeHandle n;
+        void callback(const std_msgs::String msg) {
+            ROS_INFO("%s", msg.data.c_str());
+        }
 
-  ros::Publisher chatter_pub = n.advertise<std_msgs::String>("chatter", 1000);
+    private:
+        ros::NodeHandle n_;
+        ros::Publisher pub_;
+        ros::Subscriber sub_;
+};
 
-  ros::Rate loop_rate(10);
+int main(int argc, char **argv) {
 
-  /**
+    ros::init(argc, argv, "car_controller");
+    CarController controller;
+    ros::Rate loop_rate(10);
+
+    /**
    * A count of how many messages we have sent. This is used to create
    * a unique string for each message.
    */
-  int count = 0;
-  while (ros::ok())
-  {
-    std_msgs::String msg;
+    int count = 0;
+    while (ros::ok()) {
+        std_msgs::String msg;
+        std::stringstream ss;
+        ss << "hello world " << count;
+        msg.data = ss.str();
+        count++;
 
-    std::stringstream ss;
-    ss << "hello world " << count;
-    msg.data = ss.str();
-    ROS_INFO("%s", msg.data.c_str());
+        controller.publish(msg);
 
-    chatter_pub.publish(msg);
+        ros::spinOnce();
+        loop_rate.sleep();
+    }
 
-    ros::spinOnce();
-
-    loop_rate.sleep();
-    ++count;
-  }
-
-
-  return 0;
+    return 0;
 }
