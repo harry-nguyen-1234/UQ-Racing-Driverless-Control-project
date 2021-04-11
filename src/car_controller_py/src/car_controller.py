@@ -29,15 +29,24 @@ class CarController:
         self.car_velocity = None
         self.car_acceleration = None
         self.traj_coords = None
+        self.traj_closest_x = None
+        self.traj_closest_y = None
         self.tree = None
 
+        self.MARKER_POSITION = 0
+        self.MARKER_HEADING = 1
+        self.MARKER_CLOSEST_TRAJ = 2
+
     def draw_car_position(self, marker):
-        marker.id = 0
+        marker.id = self.MARKER_POSITION
         marker.type = Marker.SPHERE
         marker.action = Marker.ADD
 
         marker.pose.position.x = self.car_position.x
         marker.pose.position.y = self.car_position.y
+        marker.pose.orientation.x = 0.0
+        marker.pose.orientation.y = 0.0
+        marker.pose.orientation.z = 0.0
         marker.pose.orientation.w = 1.0
 
         marker.scale.x = 0.25
@@ -52,12 +61,11 @@ class CarController:
         self.pub_position.publish(marker)
 
     def draw_car_heading(self, marker):
-        marker.id = 1
+        marker.id = self.MARKER_HEADING
         marker.type = Marker.ARROW
         marker.action = Marker.ADD
 
-        q = quaternion_about_axis(
-            self.car_position.theta + self.car_velocity.theta, (0, 0, 1))
+        q = quaternion_about_axis(self.car_position.theta, (0, 0, 1))
         marker.pose.position.x = self.car_position.x
         marker.pose.position.y = self.car_position.y
         marker.pose.orientation.x = q[0]
@@ -76,13 +84,16 @@ class CarController:
 
         self.pub_position.publish(marker)
 
-    def draw_closest_traj_point(self, marker, closest_x, closest_y):
-        marker.id = 2
+    def draw_closest_traj_point(self, marker):
+        marker.id = self.MARKER_CLOSEST_TRAJ
         marker.type = Marker.SPHERE
         marker.action = Marker.ADD
 
-        marker.pose.position.x = closest_x
-        marker.pose.position.y = closest_y
+        marker.pose.position.x = self.traj_closest_x
+        marker.pose.position.y = self.traj_closest_y
+        marker.pose.orientation.x = 0.0
+        marker.pose.orientation.y = 0.0
+        marker.pose.orientation.z = 0.0
         marker.pose.orientation.w = 1.0
 
         marker.scale.x = 0.25
@@ -117,9 +128,9 @@ class CarController:
             _, indexes = self.tree.query(
                 [(self.car_position.x, self.car_position.y)])
             index_closest = indexes[0]
-            closest_x = self.traj_coords[index_closest][0]
-            closest_y = self.traj_coords[index_closest][1]
-            self.draw_closest_traj_point(marker, closest_x, closest_y)
+            self.traj_closest_x = self.traj_coords[index_closest][0]
+            self.traj_closest_y = self.traj_coords[index_closest][1]
+            self.draw_closest_traj_point(marker)
 
 
 if __name__ == '__main__':
