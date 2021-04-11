@@ -171,9 +171,9 @@ class CarController:
         self.update_closest_traj(marker)
         self.update_lookahead(marker)
 
-    def callback_trajectory(self, data):
-        x = [point.x for point in data.polygon.points]
-        y = [point.y for point in data.polygon.points]
+    def callback_trajectory(self, trajectory):
+        x = [point.x for point in trajectory.polygon.points]
+        y = [point.y for point in trajectory.polygon.points]
         self.traj_coords = zip(x, y)
         self.tree = KDTree(self.traj_coords)
 
