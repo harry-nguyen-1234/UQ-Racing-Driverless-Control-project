@@ -144,7 +144,7 @@ class CarController:
 
         self.pub_position.publish(marker)
 
-    def pure_pursuit(self, marker):
+    def update_closest_traj(self, marker):
         _, indexes = self.tree.query(
             [(self.car_position.x, self.car_position.y)])
         self.traj_closet_index = indexes[0]
@@ -152,6 +152,7 @@ class CarController:
         self.traj_closest_y = self.traj_coords[self.traj_closet_index][1]
         self.draw_closest_traj_point(marker)
 
+    def update_lookahead(self, marker):
         self.lookahead_index = self.traj_closet_index
         while(True):
             self.lookahead_x = self.traj_coords[self.lookahead_index][0]
@@ -165,6 +166,10 @@ class CarController:
                 self.lookahead_index + 1) % len(self.traj_coords)
 
         self.draw_lookahead_point(marker)
+
+    def pure_pursuit(self, marker):
+        self.update_closest_traj(marker)
+        self.update_lookahead(marker)
 
     def callback_trajectory(self, data):
         x = [point.x for point in data.polygon.points]
