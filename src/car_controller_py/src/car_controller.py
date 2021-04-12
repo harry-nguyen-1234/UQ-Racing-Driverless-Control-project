@@ -43,7 +43,6 @@ class CarController:
         self.curvature_map = None
 
         self.lookahead_dist = 1
-        self.lookahead_index = 0
         self.lookahead_x = 0
         self.lookahead_y = 0
 
@@ -169,17 +168,16 @@ class CarController:
         self.draw_closest_traj_point(marker)
 
     def update_lookahead(self, marker):
-        self.lookahead_index = self.traj_closet_index
+        lookahead_index = self.traj_closet_index
         while(True):
-            self.lookahead_x = self.traj_coords[self.lookahead_index][0]
-            self.lookahead_y = self.traj_coords[self.lookahead_index][1]
+            self.lookahead_x = self.traj_coords[lookahead_index][0]
+            self.lookahead_y = self.traj_coords[lookahead_index][1]
             chord_length = math.hypot((self.traj_closest_x - self.lookahead_x),
                                       (self.traj_closest_y - self.lookahead_y))
             if chord_length > self.lookahead_dist:
                 break
 
-            self.lookahead_index = (
-                self.lookahead_index + 1) % len(self.traj_coords)
+            lookahead_index = (lookahead_index + 1) % len(self.traj_coords)
 
         self.draw_lookahead_point(marker)
 
