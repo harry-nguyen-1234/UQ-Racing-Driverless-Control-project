@@ -49,6 +49,9 @@ class CarController:
 
         self.target_speed = 5
 
+        self.MAX_SPEED = 10
+        self.MIN_SPEED = 3
+
         self.MARKER_POSITION = 0
         self.MARKER_HEADING = 1
         self.MARKER_CLOSEST_TRAJ = 2
@@ -93,7 +96,12 @@ class CarController:
         marker.pose.orientation.z = q[2]
         marker.pose.orientation.w = q[3]
 
-        marker.scale.x = 2.0
+        max_arrow_length = 5.0
+        car_speed = math.hypot(self.car_velocity.x, self.car_velocity.y)
+        arrow_length = car_speed / \
+            (self.MAX_SPEED - self.MIN_SPEED) * max_arrow_length
+
+        marker.scale.x = arrow_length
         marker.scale.y = 0.10
         marker.scale.z = 0.10
 
@@ -204,14 +212,33 @@ class CarController:
 
         self.pub_command.publish(cmd)
 
+    def update_target_speed(self):
+        min_curv = np.amin(self.curvature_map)
+        max_curv = np.amax(self.curvature_map)
+
+        closest_curv = self.curvature_map[self.traj_closet_index]
+
+        speed = closest_curv / (max_curv - min_curv) * (self.MAX_SPEED -
+                                                        self.MIN_SPEED)
+
+        # Low curvature maps to high speed, so invert it here.
+        speed = self.MAX_SPEED - self.MIN_SPEED - speed
+        if speed < self.MIN_SPEED:
+            speed = self.MIN_SPEED
+        elif speed > self.MAX_SPEED:
+            speed = self.MAX_SPEED
+
+        self.target_speed = speed
+
     def pure_pursuit(self, marker):
         self.update_closest_traj(marker)
         self.update_lookahead(marker)
+        self.update_target_speed()
         self.drive(marker)
 
-    def draw_curv_map(self, curv_map):
-        min_curv = np.amin(curv_map)
-        max_curv = np.amax(curv_map)
+    def draw_curv_map(self):
+        min_curv = np.amin(self.curvature_map)
+        max_curv = np.amax(self.curvature_map)
         HSV_min = 0
         HSV_max = 240 / 360.0
 
@@ -227,11 +254,9 @@ class CarController:
         marker.pose.orientation.z = 0.0
         marker.pose.orientation.w = 1.0
 
-        marker.scale.x = 0.1
-        marker.scale.y = 0.1
-        marker.scale.z = 0.1
+        marker.scale.x = 0.15
 
-        for i, v in enumerate(curv_map):
+        for i, v in enumerate(self.curvature_map):
             color = v / (max_curv - min_curv) * (HSV_max - HSV_min)
             # Invert so the largest curvature maps to smallest HSV
             color = HSV_max - HSV_min - color
@@ -277,7 +302,9 @@ class CarController:
 
             curv_map.append(curvature)
 
-        self.draw_curv_map(curv_map)
+        self.curvature_map = curv_map
+
+        self.draw_curv_map()
 
     def callback_trajectory(self, trajectory):
         x = [point.x for point in trajectory.polygon.points]
