@@ -13,4 +13,3 @@ src/fssim_description/
 src/fssim_gazebo/
 src/fssim_gazebo_plugins/
 src/fssim_messages/
-src/trajectory_finder/
