@@ -42,6 +42,8 @@ class CarController:
         self.lookahead_x = 0
         self.lookahead_y = 0
 
+        self.target_speed = 5
+
         self.MARKER_POSITION = 0
         self.MARKER_HEADING = 1
         self.MARKER_CLOSEST_TRAJ = 2
@@ -169,7 +171,7 @@ class CarController:
 
     def drive(self, marker):
         car_velocity = math.hypot(self.car_velocity.x, self.car_velocity.y)
-        velocity_cmd = 5 - car_velocity
+        velocity_cmd = self.target_speed - car_velocity
 
         x_offset = self.car_position.x - self.lookahead_x
         y_offset = self.car_position.y - self.lookahead_y
