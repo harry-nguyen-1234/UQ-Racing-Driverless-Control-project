@@ -4,12 +4,13 @@ import numpy as np
 import math
 from scipy.spatial import KDTree
 import matplotlib.pyplot as plt
+import colorsys
 
 import rospy
 from tf.transformations import quaternion_about_axis
-from std_msgs.msg import String
+from std_msgs.msg import String, ColorRGBA
 from fssim_messages.msg import Command, State, WheelSpeed
-from geometry_msgs.msg import PolygonStamped, Point32
+from geometry_msgs.msg import PolygonStamped, Point32, Point
 from visualization_msgs.msg import Marker
 
 
@@ -20,6 +21,9 @@ class CarController:
 
         self.pub_position = rospy.Publisher(
             "chicken/position", Marker, latch=True, queue_size=1)
+
+        self.pub_curvature = rospy.Publisher(
+            "chicken/traj_curvature", Marker, latch=True, queue_size=1)
 
         rospy.Subscriber("chicken/trajectory", PolygonStamped,
                          self.callback_trajectory, queue_size=1)
@@ -36,6 +40,7 @@ class CarController:
         self.traj_closest_x = 0
         self.traj_closest_y = 0
         self.tree = None
+        self.curvature_map = None
 
         self.lookahead_dist = 1
         self.lookahead_index = 0
@@ -48,6 +53,7 @@ class CarController:
         self.MARKER_HEADING = 1
         self.MARKER_CLOSEST_TRAJ = 2
         self.MARKER_LOOKAHEAD = 3
+        self.MARKER_CURVATURE = 4
 
     def draw_car_position(self, marker):
         marker.id = self.MARKER_POSITION
@@ -203,11 +209,83 @@ class CarController:
         self.update_lookahead(marker)
         self.drive(marker)
 
+    def draw_curv_map(self, curv_map):
+        min_curv = np.amin(curv_map)
+        max_curv = np.amax(curv_map)
+        HSV_min = 0
+        HSV_max = 240 / 360.0
+
+        marker = Marker()
+        marker.header.stamp = rospy.get_rostime()
+        marker.header.frame_id = "map"
+        marker.id = self.MARKER_CURVATURE
+        marker.type = Marker.LINE_STRIP
+        marker.action = Marker.ADD
+
+        marker.pose.orientation.x = 0.0
+        marker.pose.orientation.y = 0.0
+        marker.pose.orientation.z = 0.0
+        marker.pose.orientation.w = 1.0
+
+        marker.scale.x = 0.1
+        marker.scale.y = 0.1
+        marker.scale.z = 0.1
+
+        for i, v in enumerate(curv_map):
+            color = v / (max_curv - min_curv) * (HSV_max - HSV_min)
+            # Invert so the largest curvature maps to smallest HSV
+            color = HSV_max - HSV_min - color
+            r, g, b = colorsys.hsv_to_rgb(color, 1, 1)
+            x, y = self.traj_coords[i]
+
+            marker.points.append(Point(x, y, 0))
+            marker.colors.append(ColorRGBA(r, g, b, 1))
+
+        self.pub_curvature.publish(marker)
+
+    def update_curvature_map(self):
+        # Calculate curvature of trajectory using circumradiuses of three
+        # iteratively sampled points.
+        curv_map = []
+        search_interval = 5
+        for index_this in range(len(self.traj_coords)):
+            index_next = (index_this + search_interval) % len(self.traj_coords)
+            index_prev = (index_this + len(self.traj_coords) -
+                          search_interval) % len(self.traj_coords)
+
+            point_ax, point_ay = self.traj_coords[index_this]
+            point_bx, point_by = self.traj_coords[index_next]
+            point_cx, point_cy = self.traj_coords[index_prev]
+
+            dist_AB = math.hypot((point_ax - point_bx), (point_ay - point_by))
+            dist_AC = math.hypot((point_ax - point_cx), (point_ay - point_cy))
+            dist_BC = math.hypot((point_bx - point_cx), (point_by - point_cy))
+
+            # Sort lengths for numerically stable Heron's formula.
+            lengths = np.sort([dist_AB, dist_AC, dist_BC])[::-1]
+            a = lengths[0]
+            b = lengths[1]
+            c = lengths[2]
+
+            denominator = a * b * c
+            if denominator == 0:
+                curvature = 0
+            else:
+                area = 1/4.0 * \
+                    math.sqrt((a+(b+c))*(c-(a-b))*(c+(a-b))*(a+(b-c)))
+                curvature = 4.0 * area / denominator
+
+            curv_map.append(curvature)
+
+        self.draw_curv_map(curv_map)
+
     def callback_trajectory(self, trajectory):
         x = [point.x for point in trajectory.polygon.points]
         y = [point.y for point in trajectory.polygon.points]
         self.traj_coords = zip(x, y)
         self.tree = KDTree(self.traj_coords)
+
+        self.update_curvature_map()
 
     def callback_state(self, state):
         self.car_position = state.position
