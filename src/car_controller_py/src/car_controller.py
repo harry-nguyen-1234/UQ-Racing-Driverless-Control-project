@@ -8,7 +8,7 @@ import colorsys
 import rospy
 from tf.transformations import quaternion_about_axis
 from std_msgs.msg import String, ColorRGBA
-from fssim_messages.msg import Command, State, WheelSpeed
+from fssim_messages.msg import Command, State
 from geometry_msgs.msg import PolygonStamped, Point32, Point
 from visualization_msgs.msg import Marker
 
