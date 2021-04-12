@@ -3,7 +3,6 @@
 import numpy as np
 import math
 from scipy.spatial import KDTree
-import matplotlib.pyplot as plt
 import colorsys
 
 import rospy
