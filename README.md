@@ -1,4 +1,4 @@
-# UQ Racing Driverless project.
+# UQ Racing Driverless Control project.
 
 Project to control car given known trajectory. <br/>
 Technologies: ROS, Python, Linux (Ubuntu)
