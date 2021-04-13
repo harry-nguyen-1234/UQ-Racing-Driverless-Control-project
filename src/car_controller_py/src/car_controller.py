@@ -36,19 +36,19 @@ class CarController:
 
         self.traj_coords = None
         self.traj_closet_index = 0
-        self.traj_closest_x = 0
-        self.traj_closest_y = 0
+        self.traj_closest_x = 0.0
+        self.traj_closest_y = 0.0
         self.tree = None
         self.curvature_map = None
 
-        self.lookahead_dist = 1
-        self.lookahead_x = 0
-        self.lookahead_y = 0
+        self.lookahead_dist = 1.0
+        self.lookahead_x = 0.0
+        self.lookahead_y = 0.0
 
-        self.target_speed = 5
+        self.target_speed = 5.0
 
-        self.MAX_SPEED = 10
-        self.MIN_SPEED = 3
+        self.MAX_SPEED = 10.0
+        self.MIN_SPEED = 3.0
 
         self.MARKER_POSITION = 0
         self.MARKER_HEADING = 1
@@ -56,7 +56,10 @@ class CarController:
         self.MARKER_LOOKAHEAD = 3
         self.MARKER_CURVATURE = 4
 
-    def draw_car_position(self, marker):
+    def draw_car_position(self):
+        marker = Marker()
+        marker.header.stamp = rospy.get_rostime()
+        marker.header.frame_id = "map"
         marker.id = self.MARKER_POSITION
         marker.type = Marker.SPHERE
         marker.action = Marker.ADD
@@ -80,7 +83,10 @@ class CarController:
 
         self.pub_position.publish(marker)
 
-    def draw_car_heading(self, marker):
+    def draw_car_heading(self):
+        marker = Marker()
+        marker.header.stamp = rospy.get_rostime()
+        marker.header.frame_id = "map"
         marker.id = self.MARKER_HEADING
         marker.type = Marker.ARROW
         marker.action = Marker.ADD
@@ -110,7 +116,10 @@ class CarController:
 
         self.pub_position.publish(marker)
 
-    def draw_closest_traj_point(self, marker):
+    def draw_closest_traj_point(self):
+        marker = Marker()
+        marker.header.stamp = rospy.get_rostime()
+        marker.header.frame_id = "map"
         marker.id = self.MARKER_CLOSEST_TRAJ
         marker.type = Marker.SPHERE
         marker.action = Marker.ADD
@@ -134,7 +143,10 @@ class CarController:
 
         self.pub_position.publish(marker)
 
-    def draw_lookahead_point(self, marker):
+    def draw_lookahead_point(self):
+        marker = Marker()
+        marker.header.stamp = rospy.get_rostime()
+        marker.header.frame_id = "map"
         marker.id = self.MARKER_LOOKAHEAD
         marker.type = Marker.SPHERE
         marker.action = Marker.ADD
@@ -158,15 +170,15 @@ class CarController:
 
         self.pub_position.publish(marker)
 
-    def update_closest_traj(self, marker):
+    def update_closest_traj(self):
         _, indexes = self.tree.query(
             [(self.car_position.x, self.car_position.y)])
         self.traj_closet_index = indexes[0]
         self.traj_closest_x = self.traj_coords[self.traj_closet_index][0]
         self.traj_closest_y = self.traj_coords[self.traj_closet_index][1]
-        self.draw_closest_traj_point(marker)
+        self.draw_closest_traj_point()
 
-    def update_lookahead(self, marker):
+    def update_lookahead(self):
         lookahead_index = self.traj_closet_index
         while(True):
             self.lookahead_x = self.traj_coords[lookahead_index][0]
@@ -178,9 +190,9 @@ class CarController:
 
             lookahead_index = (lookahead_index + 1) % len(self.traj_coords)
 
-        self.draw_lookahead_point(marker)
+        self.draw_lookahead_point()
 
-    def drive(self, marker):
+    def drive(self):
         car_velocity = math.hypot(self.car_velocity.x, self.car_velocity.y)
         velocity_cmd = self.target_speed - car_velocity
 
@@ -191,13 +203,13 @@ class CarController:
         angle_offset = car_heading - theta
 
         dist_to_point = math.hypot(x_offset, y_offset)
-        curvature = 2 * math.sin(angle_offset) / dist_to_point
+        curvature = 2.0 * math.sin(angle_offset) / dist_to_point
 
         steering_angle = curvature
-        if steering_angle > 1:
-            steering_angle = 1
-        elif steering_angle < -1:
-            steering_angle = -1
+        if steering_angle > 1.0:
+            steering_angle = 1.0
+        elif steering_angle < -1.0:
+            steering_angle = -1.0
 
         angle_cmd = steering_angle
 
@@ -227,11 +239,11 @@ class CarController:
 
         self.target_speed = speed
 
-    def pure_pursuit(self, marker):
-        self.update_closest_traj(marker)
-        self.update_lookahead(marker)
+    def pure_pursuit(self):
+        self.update_closest_traj()
+        self.update_lookahead()
         self.update_target_speed()
-        self.drive(marker)
+        self.drive()
 
     def draw_curv_map(self):
         min_curv = np.amin(self.curvature_map)
@@ -316,14 +328,11 @@ class CarController:
         self.car_velocity = state.velocity
         self.car_acceleration = state.acceleration
 
-        marker = Marker()
-        marker.header.stamp = rospy.get_rostime()
-        marker.header.frame_id = "map"
-        self.draw_car_position(marker)
-        self.draw_car_heading(marker)
+        self.draw_car_position()
+        self.draw_car_heading()
 
         if self.tree is not None:
-            self.pure_pursuit(marker)
+            self.pure_pursuit()
 
 
 if __name__ == '__main__':
