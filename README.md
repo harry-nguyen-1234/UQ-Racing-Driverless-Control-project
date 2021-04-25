@@ -3,7 +3,7 @@
 Project to control car given known trajectory. <br/>
 Technologies: ROS, Python, Linux (Ubuntu)
 
-This image shows the colour coded curvature from which to control the car's velocity.
+This image shows the calculated curvature from which to control the car's velocity.
 ![Trajectory with curvature](https://github.com/harry-nguyen-1234/UQ-Racing-Driverless-Control-project/blob/master/curvature%20map.png)
 
 This image shows different speed profiles used to control the car velocity.
