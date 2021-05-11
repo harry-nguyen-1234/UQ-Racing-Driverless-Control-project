@@ -10,5 +10,5 @@ This image shows different speed profiles used to control the car velocity.
 ![Speed profiles](https://github.com/harry-nguyen-1234/UQ-Racing-Driverless-Control-project/blob/master/speed_profiles.png)
 
 This gif shows the controller in action.
-The top text shows the current speed, and the bottom text shows the current lookahead distance for the pure pursuit controller.
+One lookahead is used for steering control, and another is used for speed control/accounting for braking distance.
 ![Car controller in action](https://github.com/harry-nguyen-1234/UQ-Racing-Driverless-Control-project/blob/master/variable_speed_control.gif)
