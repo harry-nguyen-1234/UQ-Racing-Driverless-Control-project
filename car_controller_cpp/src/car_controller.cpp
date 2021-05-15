@@ -1,6 +1,10 @@
 #include "car_controller.h"
 
 CarController::CarController(ros::NodeHandle &n) {
+    load_params();
+
+    _pub_vis = n.advertise<visualization_msgs::Marker>("chicken/visualiser", 1, 
+            true);
 
     _pub_command = n.advertise<fssim_messages::Command>("chicken/cmd", 1, true);
 
@@ -9,6 +13,33 @@ CarController::CarController(ros::NodeHandle &n) {
 
     _sub_state = n.subscribe("chicken/state", 1, &CarController::callback_state, 
             this);
+}
+
+void CarController::load_params(void) {
+    if(!ros::param::get("~min_speed", _MIN_SPEED)) {
+        ROS_WARN_STREAM("Did not load min_speed. Default value is: " << 
+                _MIN_SPEED);
+    }
+
+    if(!ros::param::get("~max_speed", _MAX_SPEED)) {
+        ROS_WARN_STREAM("Did not load max_speed. Default value is: " << 
+                _MAX_SPEED);
+    }
+
+    if(!ros::param::get("~piecewise_threshold", _PIECEWISE_THRESHOLD)) {
+        ROS_WARN_STREAM("Did not load piecewise_threshold. Default value is: " << 
+                _PIECEWISE_THRESHOLD);
+    }
+
+    if(!ros::param::get("~piecewise_m_factor", _PIECEWISE_M_FACTOR)) {
+        ROS_WARN_STREAM("Did not load piecewise_m_factor. Default value is: " << 
+                _PIECEWISE_M_FACTOR);
+    }
+
+    if(!ros::param::get("~lookahead_factor", _LOOKAHEAD_FACTOR)) {
+        ROS_WARN_STREAM("Did not load lookahead_factor. Default value is: " << 
+                _LOOKAHEAD_FACTOR);
+    }
 }
 
 void CarController::pure_pursuit(void) {
@@ -24,7 +55,7 @@ void CarController::update_closest_traj_index(void) {
     const auto car_x = _state.position.x;
     const auto car_y = _state.position.y;
 
-    std::vector<float> distances;
+    std::vector<double> distances;
     for (const auto &p : _traj_coords) {
         const auto distance = std::hypot(p.x - car_x, p.y - car_y);
         distances.push_back(distance);
@@ -35,6 +66,16 @@ void CarController::update_closest_traj_index(void) {
     const auto min_ele_index = std::distance(distances.begin(), it);
 
     _closest_traj_index = min_ele_index;
+
+    std_msgs::ColorRGBA color_rgba;
+    color_rgba.r = 0;
+    color_rgba.g = 0;
+    color_rgba.b = 1;
+    color_rgba.a = 1;
+    draw_pp_marker(_traj_coords[_closest_traj_index].x,
+            _traj_coords[_closest_traj_index].y, 
+            color_rgba,
+            MARKER_CLOSEST_TRAJ);
 }
 
 void CarController::update_lookahead_dist(void) {
@@ -59,9 +100,10 @@ void CarController::update_lookahead_index(void) {
     const auto closest_traj_x = _traj_coords[_closest_traj_index].x;
     const auto closest_traj_y = _traj_coords[_closest_traj_index].y;
 
+    double lookahead_x, lookahead_y;
     while (true) {
-        const auto lookahead_x = _traj_coords[_lookahead_index].x;
-        const auto lookahead_y = _traj_coords[_lookahead_index].y;
+        lookahead_x = _traj_coords[_lookahead_index].x;
+        lookahead_y = _traj_coords[_lookahead_index].y;
         const auto chord_length = std::hypot(closest_traj_x - lookahead_x, 
                 closest_traj_y - lookahead_y);
 
@@ -70,6 +112,13 @@ void CarController::update_lookahead_index(void) {
         }
         _lookahead_index = (_lookahead_index + 1) % _traj_coords.size();
     }
+
+    std_msgs::ColorRGBA color_rgba;
+    color_rgba.r = 1;
+    color_rgba.g = 0;
+    color_rgba.b = 1;
+    color_rgba.a = 1;
+    draw_pp_marker(lookahead_x, lookahead_y, color_rgba, MARKER_LOOKAHEAD);
 }
 
 void CarController::update_speed_lookahead_index(void) {
@@ -77,9 +126,10 @@ void CarController::update_speed_lookahead_index(void) {
     const auto closest_traj_x = _traj_coords[_closest_traj_index].x;
     const auto closest_traj_y = _traj_coords[_closest_traj_index].y;
 
+    double speed_lookahead_x, speed_lookahead_y;
     while (true) {
-        const auto speed_lookahead_x = _traj_coords[_speed_lookahead_index].x;
-        const auto speed_lookahead_y = _traj_coords[_speed_lookahead_index].y;
+        speed_lookahead_x = _traj_coords[_speed_lookahead_index].x;
+        speed_lookahead_y = _traj_coords[_speed_lookahead_index].y;
         const auto chord_length = std::hypot(closest_traj_x - speed_lookahead_x, 
                 closest_traj_y - speed_lookahead_y);
 
@@ -89,6 +139,16 @@ void CarController::update_speed_lookahead_index(void) {
         _speed_lookahead_index = (_speed_lookahead_index + 1) % 
                 _traj_coords.size();
     }
+
+    std_msgs::ColorRGBA color_rgba;
+    color_rgba.r = 0;
+    color_rgba.g = 1;
+    color_rgba.b = 0;
+    color_rgba.a = 1;
+    draw_pp_marker(speed_lookahead_x, speed_lookahead_y, color_rgba, 
+            MARKER_SPEED_LOOKAHEAD);
+
+    draw_speed_control_spline();
 }
 
 void CarController::drive(void) {
@@ -104,7 +164,7 @@ void CarController::drive(void) {
     _pub_command.publish(cmd);
 }
 
-const float CarController::set_throttle(void) {
+const double CarController::set_throttle(void) {
     const auto car_speed = std::hypot(_state.velocity.x, _state.velocity.y);
     auto throttle = (_target_speed - car_speed) / _target_speed;
 
@@ -128,7 +188,7 @@ void CarController::update_target_speed(void) {
     }
 }
 
-const float CarController::piecewise_linear(float curv) {
+const double CarController::piecewise_linear(double curv) {
     const auto m = (_MAX_SPEED - _MIN_SPEED) / (_min_curv - _max_curv);
     const auto x_stop = (_max_curv - _min_curv) * _PIECEWISE_THRESHOLD + 
             _min_curv;
@@ -140,7 +200,7 @@ const float CarController::piecewise_linear(float curv) {
     const auto m2 = (y_stop - _MIN_SPEED) / (x_stop - _max_curv);
     const auto c2 = y_stop - m2 * x_stop;
 
-    float speed;
+    double speed;
     if (curv < x_stop) {
         speed = m1 * curv + c1;
     } else {
@@ -150,8 +210,8 @@ const float CarController::piecewise_linear(float curv) {
     return speed;
 }
 
-const float CarController::get_max_lookahead_curv(void) {
-    std::vector<float> lookahead_curvs;
+const double CarController::get_max_lookahead_curv(void) {
+    std::vector<double> lookahead_curvs;
 
     auto i = _closest_traj_index;
     while (i != _speed_lookahead_index) {
@@ -165,7 +225,7 @@ const float CarController::get_max_lookahead_curv(void) {
     return max_lookahead_curv;
 }
 
-const float CarController::set_steering(void) {
+const double CarController::set_steering(void) {
     const auto lookahead_x = _traj_coords[_lookahead_index].x;
     const auto lookahead_y = _traj_coords[_lookahead_index].y;
 
@@ -213,7 +273,7 @@ void CarController::update_curv_map(void) {
         const auto dist_AC = std::hypot(p_a.x - p_c.x, p_a.y - p_c.y);
         const auto dist_BC = std::hypot(p_b.x - p_c.x, p_b.y - p_c.y);
 
-        std::vector<float> lengths = {dist_AB, dist_AC, dist_BC};
+        std::vector<double> lengths = {dist_AB, dist_AC, dist_BC};
         // Sort lengths in descending order for numerically stable 
         // Heron's formula.
         std::sort(lengths.begin(), lengths.end(), std::greater<float>());
@@ -222,7 +282,7 @@ void CarController::update_curv_map(void) {
         const auto c = lengths[2];
 
         const auto denominator = a * b * c;
-        float curvature;
+        double curvature;
         if (denominator == 0) {
             curvature = 0;
         } else {
@@ -247,8 +307,20 @@ void CarController::callback_trajectory(
 void CarController::callback_state(const fssim_messages::State &s) {
     _state = s;
 
-    if (!_traj_coords.empty()) {
+    std_msgs::ColorRGBA color_rgba;
+    color_rgba.r = 1;
+    color_rgba.g = 0;
+    color_rgba.b = 0;
+    color_rgba.a = 1;
+    draw_pp_marker(_state.position.x, _state.position.y, color_rgba, 
+            MARKER_POSITION);
+    draw_car_heading();
+    write_car_state();
+
+    if (!_traj_coords.empty() && !_curv_map.empty()) {
         pure_pursuit();
+        // Rviz uses lazy drawing, so continuously redraw curvature map.
+        draw_curv_map();
     }
 }
 

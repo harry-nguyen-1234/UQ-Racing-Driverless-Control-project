@@ -22,5 +22,7 @@ ${catkin_INCLUDE_DIRS}
 ${roscpp_INCLUDE_DIRS}
 )
 
-add_executable(car_controller_cpp src/car_controller.cpp)
+add_executable(car_controller_cpp 
+src/car_controller.cpp
+src/visualisation.cpp)
 target_link_libraries(car_controller_cpp ${catkin_LIBRARIES})

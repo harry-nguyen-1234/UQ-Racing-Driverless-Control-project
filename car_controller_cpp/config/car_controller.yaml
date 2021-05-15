@@ -1,0 +1,5 @@
+min_speed: 5.0            # Minimum allowable speed for the controller. [m/s]
+max_speed: 25.0           # Maximum allowable speed for the controller. [m/s]
+piecewise_threshold: 0.2  # Percentage of the curvature x-axis to cutoff for piecewise calculation
+piecewise_m_factor: 3.5   # How much to scale the first section's gradient
+lookahead_factor: 5.0     # How much to scale the steering lookahead to use as speed lookahead
